@@ -1,9 +1,9 @@
 // gcc ifrtstat.c -o ifrtstat -lgmp
 #include <stdio.h>
 #include <unistd.h>
-#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
 #include <signal.h>
@@ -11,16 +11,22 @@
 #include <gmp.h>
 
 
+#define PROG_NAME "ifrtstat"
+#define IF_LEN 16
+#define IF_DIR "/sys/class/net/"
+#define IF_PATH_R "/statistics/rx_bytes"
+#define IF_PATH_T "/statistics/tx_bytes"
 
 
 //int hours, minutes, seconds, day, month, year;
 time_t now;
-char date_t[128];
+char date_t[32];
 int filedr=0;
 int filedt=0;
 char *interface;
-char rxpath[128]="/sys/class/net/";
-char txpath[128]="/sys/class/net/";
+char testpath[64];
+char rxpath[64];
+char txpath[64];
 
 mpz_t kB,MB,GB,TB,PB;
 mpz_t kBborder,MBborder,GBborder,TBborder,PBborder;
@@ -31,102 +37,69 @@ mpz_t r,t,sr,st;
 mpz_t _r,_t,_sr,_st;
 mpz_t rem_r,rem_t,rem_sr,rem_st;
 
+unsigned char f_int=0,
+              f_max=0,
+              f_help=0;
 
-
-void gettime(){
-  memset(date_t,0,sizeof(date_t));
-  time(&now);
-  strcpy(date_t,ctime(&now));
-  date_t[strcspn(date_t,"\n")] = 0;
-}
-void alloc_num(){
-  mpz_init(kB);
-  mpz_init(MB);
-  mpz_init(GB);
-  mpz_init(TB);
-  mpz_init(PB);
-  mpz_init(kBborder);
-  mpz_init(MBborder);
-  mpz_init(GBborder);
-  mpz_init(TBborder);
-  mpz_init(PBborder);
-  mpz_init(timer);
-  mpz_init(sa);  // save first a (tx) B
-  mpz_init(sb);  // save first b (tx) B
-  mpz_init(a);  // read rx B
-  mpz_init(b);  // read tx B
-  mpz_init(aa);  // prev rx B
-  mpz_init(bb);  // prev tx B
-  mpz_init(maxrx);
-  mpz_init(maxtx);
-  mpz_init(r);  // cur rx
-  mpz_init(t);  // cur tx
-  mpz_init(sr);  // sum rx
-  mpz_init(st);  // sum tx
-  mpz_init(_r);  // cur rx B
-  mpz_init(_t);  // cur tx B
-  mpz_init(_sr);  // sum rx B
-  mpz_init(_st);  // sum tx B
-  mpz_init(rem_r);  // remainder from dividing
-  mpz_init(rem_t);
-  mpz_init(rem_sr);
-  mpz_init(rem_st);
-}
-void free_num(){
-  mpz_clear(timer);
-  mpz_clear(sa);
-  mpz_clear(sb);
-  mpz_clear(a);
-  mpz_clear(b);
-  mpz_clear(aa);
-  mpz_clear(bb);
-  mpz_clear(maxrx);
-  mpz_clear(maxtx);
-  mpz_clear(r);
-  mpz_clear(t);
-  mpz_clear(sr);
-  mpz_clear(st);
-  mpz_clear(_r);
-  mpz_clear(_t);
-  mpz_clear(_sr);
-  mpz_clear(_st);
-  mpz_clear(rem_r);
-  mpz_clear(rem_t);
-  mpz_clear(rem_sr);
-  mpz_clear(rem_st);
-  mpz_clear(kB);
-  mpz_clear(MB);
-  mpz_clear(GB);
-  mpz_clear(TB);
-  mpz_clear(PB);
-  mpz_clear(kBborder);
-  mpz_clear(MBborder);
-  mpz_clear(GBborder);
-  mpz_clear(TBborder);
-  mpz_clear(PBborder);
-}
-void sig_stop(int sig)
-{
-  close(filedr);
-  close(filedt);
-  free_num();
-  exit(0);
-}
+void sig_stop(int sig);
+void get_time();
+void alloc_num();
+void free_num();
+void usage();
 
 int main(int argc, char* argv[]) {
-  if (argc == 2) {
-    interface = argv[1];
-    strcat(rxpath,interface);
-    strcat(txpath,interface);
-    strcat(rxpath,"/statistics/rx_bytes");
-    strcat(txpath,"/statistics/tx_bytes");
-    if (access(rxpath,F_OK) != 0)
-      return 1;
+  int opt;
+  struct stat fstat;
+  while ((opt=getopt(argc,argv,"hm")) != -1) {
+    switch (opt) {
+      case 'h':
+        usage();
+        exit(0);
+      case 'm':
+        f_max=1;
+        break;
+      case '?':
+        printf("Use option -h to print help\n");
+        break;
+    }
   }
-  else {
-    printf("bandstat [interface]\n");
-    return 1;
+  // search if name
+  for (int n=1; n<argc; ++n) {
+    if (strlen(argv[n])>IF_LEN){
+      printf("Too long arg: %s\n",argv[n]);
+      exit(10);
+    }
+    if (argv[n][0]=='-') continue;
+    memset(testpath,0,sizeof(testpath));
+    strcat(testpath,IF_DIR);
+    strcat(testpath,argv[n]);
+    if (stat(testpath,&fstat)==0){ // if exist?
+      if (S_ISDIR(fstat.st_mode)) {
+        interface = argv[n];
+        memset(rxpath,0,sizeof(rxpath));
+        memset(txpath,0,sizeof(txpath));
+        strcat(rxpath,IF_DIR);
+        strcat(txpath,IF_DIR);
+        strcat(rxpath,interface);
+        strcat(txpath,interface);
+        strcat(rxpath,IF_PATH_R);
+        strcat(txpath,IF_PATH_T);
+        if (access(rxpath,R_OK)==0 && access(txpath,R_OK)==0){
+          f_int=1;
+        } else {
+          printf("Can't read:\n%s\n%s\n",rxpath,txpath);
+          exit(11);
+        }
+      }
+    }
+    else
+      printf("unknown arg: %s\n",argv[n]);
   }
+  if (!f_int){
+    printf("Bad interface name!\n");
+    exit(12);
+  }
+  
   signal(SIGINT, sig_stop);
   signal(SIGTSTP, sig_stop);
   filedr = open(rxpath, O_RDONLY );
@@ -134,7 +107,7 @@ int main(int argc, char* argv[]) {
 
   if( !filedr || !filedt ) {
     printf("Open file error\n");
-    exit(-1);
+    exit(13);
   }
   alloc_num();
   mpz_init_set_str(kB,"1000",10);
@@ -154,16 +127,18 @@ int main(int argc, char* argv[]) {
   mpz_set_ui(b,0);
   mpz_set_ui(aa,0);
   mpz_set_ui(bb,0);
-  mpz_set_ui(maxrx,0);
-  mpz_set_ui(maxtx,0);
+  if (f_max){
+    mpz_set_ui(maxrx,0);
+    mpz_set_ui(maxtx,0);
+  }
   char rxbuf[128];
   char txbuf[128];
   int nbytesr=0, nbytest=0;
   char newrxmax=0,newtxmax=0;
   char bigr=0,bigt=0,bigsr=0,bigst=0;
   char rj[6],tj[6],srj[4],stj[4];
-  gettime();
-  printf("ifrtstat %s start at %s\n",interface,date_t);
+  get_time();
+  printf("%s %s start at %s\n",PROG_NAME,interface,date_t);
   while(1) {
     memset(rxbuf,0,sizeof(rxbuf));
     memset(txbuf,0,sizeof(txbuf));
@@ -195,8 +170,10 @@ int main(int argc, char* argv[]) {
       mpz_set(_sr,sr);
       mpz_set(_st,st);
       // MAX
-      if (mpz_cmp(r,maxrx)>0){ mpz_init_set(maxrx,r); newrxmax=1;}
-      if (mpz_cmp(t,maxtx)>0){ mpz_init_set(maxtx,t); newtxmax=1;}
+      if (f_max){
+        if (mpz_cmp(r,maxrx)>0){ mpz_init_set(maxrx,r); newrxmax=1;}
+        if (mpz_cmp(t,maxtx)>0){ mpz_init_set(maxtx,t); newtxmax=1;}
+      }
       // cal units
       if (mpz_cmp(sr,PBborder)>0)
         { mpz_fdiv_qr(sr,rem_sr,sr,PB); mpz_fdiv_q(rem_sr,rem_sr,TB); strcpy(srj,"PB"); bigsr=1;}
@@ -268,13 +245,15 @@ int main(int argc, char* argv[]) {
         }
         else
           gmp_printf("tx %Zd %s",t,tj);
-        if (newrxmax){
-          gmp_printf(" Max rx %Zd B/s",maxrx);
-          newrxmax=0;
-        }
-        if (newtxmax){
-          gmp_printf(" Max tx %Zd B/s",maxtx);
-          newtxmax=0;
+        if (f_max){
+          if (newrxmax){
+            gmp_printf(" Max rx %Zd B/s",maxrx);
+            newrxmax=0;
+          }
+          if (newtxmax){
+            gmp_printf(" Max tx %Zd B/s",maxtx);
+            newtxmax=0;
+          }
         }
         printf("\n");
       }
@@ -292,7 +271,99 @@ int main(int argc, char* argv[]) {
   close(filedt);
   free_num();
   printf("exit\n");
-  return 0;
+  exit(0);
 }
 
+void sig_stop(int sig)
+{
+  close(filedr);
+  close(filedt);
+  free_num();
+  exit(0);
+}
+void get_time(){
+  memset(date_t,0,sizeof(date_t));
+  time(&now);
+  strcpy(date_t,ctime(&now));
+  date_t[strcspn(date_t,"\n")] = 0;
+}
+void alloc_num(){
+  mpz_init(kB);
+  mpz_init(MB);
+  mpz_init(GB);
+  mpz_init(TB);
+  mpz_init(PB);
+  mpz_init(kBborder);
+  mpz_init(MBborder);
+  mpz_init(GBborder);
+  mpz_init(TBborder);
+  mpz_init(PBborder);
+  mpz_init(timer);
+  mpz_init(sa);  // save first a (tx) B
+  mpz_init(sb);  // save first b (tx) B
+  mpz_init(a);  // read rx B
+  mpz_init(b);  // read tx B
+  mpz_init(aa);  // prev rx B
+  mpz_init(bb);  // prev tx B
+  if (f_max){
+    mpz_init(maxrx);
+    mpz_init(maxtx);
+  }
+  mpz_init(r);  // cur rx
+  mpz_init(t);  // cur tx
+  mpz_init(sr);  // sum rx
+  mpz_init(st);  // sum tx
+  mpz_init(_r);  // cur rx B
+  mpz_init(_t);  // cur tx B
+  mpz_init(_sr);  // sum rx B
+  mpz_init(_st);  // sum tx B
+  mpz_init(rem_r);  // remainder from dividing
+  mpz_init(rem_t);
+  mpz_init(rem_sr);
+  mpz_init(rem_st);
+}
+void free_num(){
+  mpz_clear(timer);
+  mpz_clear(sa);
+  mpz_clear(sb);
+  mpz_clear(a);
+  mpz_clear(b);
+  mpz_clear(aa);
+  mpz_clear(bb);
+  if (f_max){
+    mpz_clear(maxrx);
+    mpz_clear(maxtx);
+  }
+  mpz_clear(r);
+  mpz_clear(t);
+  mpz_clear(sr);
+  mpz_clear(st);
+  mpz_clear(_r);
+  mpz_clear(_t);
+  mpz_clear(_sr);
+  mpz_clear(_st);
+  mpz_clear(rem_r);
+  mpz_clear(rem_t);
+  mpz_clear(rem_sr);
+  mpz_clear(rem_st);
+  mpz_clear(kB);
+  mpz_clear(MB);
+  mpz_clear(GB);
+  mpz_clear(TB);
+  mpz_clear(PB);
+  mpz_clear(kBborder);
+  mpz_clear(MBborder);
+  mpz_clear(GBborder);
+  mpz_clear(TBborder);
+  mpz_clear(PBborder);
+}
+
+void usage(){
+  printf("Usage: %s [OPTION] [INTERFACE]\n",PROG_NAME);
+  fputs ("Options:\n\
+   -m   Print maximum data rate\n\
+   -h   Print this message\n\
+\n", stdout);
+  printf("%s is a Linux network interface rx/tx status\n",PROG_NAME);
+}
 
