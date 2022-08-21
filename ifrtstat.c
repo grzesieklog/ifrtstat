@@ -116,7 +116,7 @@ int main(int argc, char* argv[]) {
       printf("Too long arg: %s\n",argv[n]);
       exit(10);
     }
-    if (strcmp(argv[n],greater)==0) continue;
+    if (f_greater) if (strcmp(argv[n],greater)==0) continue;
     if (argv[n][0]=='-') continue;
     memset(testpath,0,sizeof(testpath));
     strcat(testpath,IF_DIR);
@@ -160,7 +160,7 @@ int main(int argc, char* argv[]) {
     }
   }
   // interface not found
-  if (!f_int){
+  if (!f_int && !f_help){
     printf("Interface not found!\n");
     exit(12);
   }
