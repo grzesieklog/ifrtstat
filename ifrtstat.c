@@ -160,11 +160,11 @@ int main(int argc, char* argv[]) {
     }
   }
   // interface not found
-  if (!f_int && !f_help){
+  if (!f_int && !f_help && argc>1){
     printf("Interface not found!\n");
     exit(12);
   }
-  if (f_help){
+  if (f_help || argc==1){
     print_usage();
     exit(0);
   }
