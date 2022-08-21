@@ -16,9 +16,9 @@
 #define IF_DIR "/sys/class/net/"
 #define IF_PATH_R "/statistics/rx_bytes"
 #define IF_PATH_T "/statistics/tx_bytes"
+#define DAY_IN_SEC 60*60*24
 
 
-//int hours, minutes, seconds, day, month, year;
 time_t now;
 char date_t[32];
 int filedr=0;
@@ -32,43 +32,91 @@ mpz_t kB,MB,GB,TB,PB;
 mpz_t kBborder,MBborder,GBborder,TBborder,PBborder;
 mpz_t sa,sb,a,b,aa,bb;
 mpz_t maxrx,maxtx;
-mpz_t timer;
+mpz_t days,timer;
+mpz_t min_Bps;
 mpz_t r,t,sr,st;
 mpz_t _r,_t,_sr,_st;
 mpz_t rem_r,rem_t,rem_sr,rem_st;
 
 unsigned char f_int=0,
               f_max=0,
+              f_date=0,
+              f_timer=0,
+              f_greater=0,
               f_help=0;
 
 void sig_stop(int sig);
 void get_time();
 void alloc_num();
 void free_num();
-void usage();
+void print_usage();
 
 int main(int argc, char* argv[]) {
   int opt;
+  const char options[] = "hmdtg:";
+  char *greater;
   struct stat fstat;
-  while ((opt=getopt(argc,argv,"hm")) != -1) {
+  unsigned char flag_sum=0;
+  unsigned char int_sum=0;
+  // get options
+  while ((opt=getopt(argc,argv,options)) != -1) {
     switch (opt) {
       case 'h':
-        usage();
-        exit(0);
+        if (f_help>0){
+          printf("Option -h is duplicated.\n");
+          exit(7);
+        }
+        f_help=1;
+        flag_sum++;
+        break;
       case 'm':
+        if (f_max>0){
+          printf("Option -m is duplicated.\n");
+          exit(7);
+        }
         f_max=1;
+        flag_sum++;
+        break;
+      case 'd':
+        if (f_date>0){
+          printf("Option -d is duplicated.\n");
+          exit(7);
+        }
+        f_date=1;
+        flag_sum++;
+        break;
+      case 't':
+        if (f_timer>0){
+          printf("Option -t is duplicated.\n");
+          exit(7);
+        }
+        f_timer=1;
+        flag_sum++;
+        break;
+      case 'g':
+        if (f_greater>0){
+          printf("Option -g is duplicated.\n");
+          exit(7);
+        }
+        // TODO clear '=' from val
+        greater = optarg;
+        f_greater=1;
+        flag_sum++;
         break;
       case '?':
-        printf("Use option -h to print help\n");
+        printf("Use option -h to print help.\n");
+        exit(7);
         break;
     }
   }
   // search if name
   for (int n=1; n<argc; ++n) {
+    // TODO len of -g val, now is 999..PB
     if (strlen(argv[n])>IF_LEN){
       printf("Too long arg: %s\n",argv[n]);
       exit(10);
     }
+    if (strcmp(argv[n],greater)==0) continue;
     if (argv[n][0]=='-') continue;
     memset(testpath,0,sizeof(testpath));
     strcat(testpath,IF_DIR);
@@ -86,18 +134,39 @@ int main(int argc, char* argv[]) {
         strcat(txpath,IF_PATH_T);
         if (access(rxpath,R_OK)==0 && access(txpath,R_OK)==0){
           f_int=1;
+          int_sum++;
         } else {
-          printf("Can't read:\n%s\n%s\n",rxpath,txpath);
+          printf("Cannot read:\n%s\n%s\n",rxpath,txpath);
           exit(11);
         }
       }
     }
-    else
+    else{
       printf("unknown arg: %s\n",argv[n]);
+      int_sum++;
+    }
   }
+  // check args count
+  if (flag_sum > strlen(options)+1 || // +1: -g val
+      int_sum > 1){
+    printf("Too many args...\n");
+    exit(9);
+  }
+  // check options combination
+  if (flag_sum>0){
+    if (flag_sum>1 && f_help){
+      printf("Option -h cannot be used with other options.\n");
+      exit(8);
+    }
+  }
+  // interface not found
   if (!f_int){
-    printf("Bad interface name!\n");
+    printf("Interface not found!\n");
     exit(12);
+  }
+  if (f_help){
+    print_usage();
+    exit(0);
   }
   
   signal(SIGINT, sig_stop);
@@ -131,15 +200,24 @@ int main(int argc, char* argv[]) {
     mpz_set_ui(maxrx,0);
     mpz_set_ui(maxtx,0);
   }
+  if (f_greater){
+    mpz_init_set_str(min_Bps,greater,10);
+    //gmp_printf("%Zd\n",min_Bps);
+  }
   char rxbuf[128];
   char txbuf[128];
   int nbytesr=0, nbytest=0;
+  unsigned long int ui_hours=0,ui_minutes=0,ui_sec=0;
   char newrxmax=0,newtxmax=0;
   char bigr=0,bigt=0,bigsr=0,bigst=0;
   char rj[6],tj[6],srj[4],stj[4];
-  get_time();
-  printf("%s %s start at %s\n",PROG_NAME,interface,date_t);
+  char printrt;
+  if (!f_date){
+    get_time();
+    printf("%s %s start at %s\n",PROG_NAME,interface,date_t);
+  }
   while(1) {
+    printrt=1;
     memset(rxbuf,0,sizeof(rxbuf));
     memset(txbuf,0,sizeof(txbuf));
     nbytesr = read(filedr, rxbuf, 128);
@@ -174,6 +252,11 @@ int main(int argc, char* argv[]) {
         if (mpz_cmp(r,maxrx)>0){ mpz_init_set(maxrx,r); newrxmax=1;}
         if (mpz_cmp(t,maxtx)>0){ mpz_init_set(maxtx,t); newtxmax=1;}
       }
+      // over then
+      if (f_greater){
+        if (mpz_cmp(r,min_Bps)<0 && mpz_cmp(t,min_Bps)<0) printrt=0;
+      }
+      // TODO don't calculate if not printrt
       // cal units
       if (mpz_cmp(sr,PBborder)>0)
         { mpz_fdiv_qr(sr,rem_sr,sr,PB); mpz_fdiv_q(rem_sr,rem_sr,TB); strcpy(srj,"PB"); bigsr=1;}
@@ -224,17 +307,45 @@ int main(int argc, char* argv[]) {
       else
         strcpy(tj,"B/s");
       // print
-      if (mpz_cmp_ui(timer,0)>0){
-        if (bigsr){
-          gmp_printf("%s[%Zd] Sum rx %Zd.%03Zd %s ",interface,timer,sr,rem_sr,srj);
+      if (mpz_cmp_ui(timer,0)>0 && printrt){
+        // date
+        if (f_date){
+          get_time();
+          printf("%s ",date_t);
+        }
+        // interface
+        printf("%s",interface);
+        // counter/timers
+        if (f_timer){
+          ui_sec = mpz_fdiv_q_ui(days,timer,DAY_IN_SEC);
+          ui_hours = ui_sec/(DAY_IN_SEC/24);
+          ui_sec = ui_sec-(ui_hours*(DAY_IN_SEC/24));
+          ui_minutes = ui_sec/60;
+          ui_sec = ui_sec-(ui_minutes*60);
+          printf("[");
+          if (mpz_cmp_ui(days,0)>0)
+            gmp_printf("%Zd%s",days,"d");
+          if (ui_hours)
+            printf("%u%s",ui_hours,"h");
+          if (ui_minutes)
+            printf("%u%s",ui_minutes,"m");
+          //gmp_printf("[%Zd%s%u%s%u%s%02u]",days,"d",ui_hours,"h",ui_minutes,"m",ui_sec);
+          printf("%02u]",ui_sec);
         }
         else
-          gmp_printf("%s[%Zd] Sum rx %Zd %s ",interface,timer,sr,srj);
+          gmp_printf("[%Zd]",timer);
+        // sum
+        if (bigsr){
+          gmp_printf(" Sum rx %Zd.%03Zd %s ",sr,rem_sr,srj);
+        }
+        else
+          gmp_printf(" Sum rx %Zd %s ",sr,srj);
         if (bigst){
           gmp_printf("tx %Zd.%03Zd %s ",st,rem_st,stj);
         }
         else
           gmp_printf("tx %Zd %s ",st,stj);
+        // current rate
         if (bigr){
           gmp_printf("Cur rx %Zd.%03Zd %s ",r,rem_r,rj);
         }
@@ -245,6 +356,7 @@ int main(int argc, char* argv[]) {
         }
         else
           gmp_printf("tx %Zd %s",t,tj);
+        // max
         if (f_max){
           if (newrxmax){
             gmp_printf(" Max rx %Zd B/s",maxrx);
@@ -255,6 +367,7 @@ int main(int argc, char* argv[]) {
             newtxmax=0;
           }
         }
+        // end
         printf("\n");
       }
       lseek(filedr,(off_t)0,SEEK_SET);
@@ -299,6 +412,8 @@ void alloc_num(){
   mpz_init(TBborder);
   mpz_init(PBborder);
   mpz_init(timer);
+  mpz_init(days);
+  mpz_init(min_Bps);
   mpz_init(sa);  // save first a (tx) B
   mpz_init(sb);  // save first b (tx) B
   mpz_init(a);  // read rx B
@@ -324,6 +439,8 @@ void alloc_num(){
 }
 void free_num(){
   mpz_clear(timer);
+  mpz_clear(days);
+  mpz_clear(min_Bps);
   mpz_clear(sa);
   mpz_clear(sb);
   mpz_clear(a);
@@ -358,12 +475,15 @@ void free_num(){
   mpz_clear(PBborder);
 }
 
-void usage(){
-  printf("Usage: %s [OPTION] [INTERFACE]\n",PROG_NAME);
+void print_usage(){
+  printf("Usage: %s [OPTIONS] [INTERFACE]\n",PROG_NAME);
   fputs ("Options:\n\
-   -m   Print maximum data rate\n\
-   -h   Print this message\n\
+   -m      print maximum data rate\n\
+   -d      print date on each line\n\
+   -t      print counter divided into days/hours/minutes\n\
+   -g val  print only Bps values greater than val\n\
+   -h      print this message\n\
 \n", stdout);
-  printf("%s is a Linux network interface rx/tx status\n",PROG_NAME);
+  printf("%s is a Linux network interface rx/tx status.\n",PROG_NAME);
 }
 
