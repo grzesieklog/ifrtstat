@@ -1,6 +1,7 @@
 // gcc ifrtstat.c -o ifrtstat -lgmp
 #include <stdio.h>
-#include <stdint.h>
+//#include <stdint.h>
+#include <inttypes.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -19,20 +20,23 @@
 
 #define PROG_NAME "ifrtstat"
 #define IF_LEN 16
-#define IF_DIR "/sys/class/net/"
+/*#define IF_DIR "/sys/class/net/"
 #define IF_PATH_R "/statistics/rx_bytes"
-#define IF_PATH_T "/statistics/tx_bytes"
+#define IF_PATH_T "/statistics/tx_bytes"*/
 #define DAY_IN_SEC 60*60*24
 
 
 time_t now;
 char date_t[32];
-int filedr=0;
-int filedt=0;
+//int filedr=0;
+//int filedt=0;
 char *interface;
-char testpath[64];
+/*char testpath[64];
 char rxpath[64];
-char txpath[64];
+char txpath[64];*/
+
+struct rtnl_link *nlink;
+struct nl_sock *nlsocket;
 
 mpz_t kB,MB,GB,TB,PB;
 mpz_t kBborder,MBborder,GBborder,TBborder,PBborder;
@@ -58,6 +62,8 @@ void free_num();
 void print_usage();
 
 int main(int argc, char* argv[]) {
+  uint64_t rx_bytes=0,tx_bytes=0;
+
   int opt;
   const char options[] = "hmdtg:";
   char *greater;
@@ -115,19 +121,37 @@ int main(int argc, char* argv[]) {
         break;
     }
   }
+  // prepare connection to netlink
+  nlsocket = nl_socket_alloc();
+  if (!nlsocket)
+    exit(30);
+  if (nl_connect(nlsocket,NETLINK_ROUTE)!=0){
+    nl_socket_free(nlsocket);
+    exit(31);
+  }
   // search if name
   for (int n=1; n<argc; ++n) {
+    if (f_greater)
+      if (strcmp(argv[n],greater)==0)
+        continue;
     // TODO len of -g val, now is 999..PB
     if (strlen(argv[n])>IF_LEN){
       printf("Too long arg: %s\n",argv[n]);
       exit(10);
     }
-    if (f_greater) if (strcmp(argv[n],greater)==0) continue;
     if (argv[n][0]=='-') continue;
+    /*
     memset(testpath,0,sizeof(testpath));
     strcat(testpath,IF_DIR);
     strcat(testpath,argv[n]);
-    if (stat(testpath,&fstat)==0){ // if exist?
+    */
+    //if (stat(testpath,&fstat)==0){ // if exist?
+    if (rtnl_link_get_kernel(nlsocket,0,argv[n],&nlink)==0){ // if exist?
+      rtnl_link_put(nlink);
+      interface = argv[n];
+      f_int=1;
+      int_sum++;
+      /*
       if (S_ISDIR(fstat.st_mode)) {
         interface = argv[n];
         memset(rxpath,0,sizeof(rxpath));
@@ -145,7 +169,7 @@ int main(int argc, char* argv[]) {
           printf("Cannot read:\n%s\n%s\n",rxpath,txpath);
           exit(11);
         }
-      }
+      }*/
     }
     else{
       printf("unknown arg: %s\n",argv[n]);
@@ -156,22 +180,26 @@ int main(int argc, char* argv[]) {
   if (flag_sum > strlen(options)+1 || // +1: -g val
       int_sum > 1){
     printf("Too many args...\n");
+    nl_socket_free(nlsocket);
     exit(9);
   }
   // check options combination
   if (flag_sum>0){
     if (flag_sum>1 && f_help){
       printf("Option -h cannot be used with other options.\n");
+      nl_socket_free(nlsocket);
       exit(8);
     }
   }
   // interface not found
   if (!f_int && !f_help && argc>1){
     printf("Interface not found!\n");
+    nl_socket_free(nlsocket);
     exit(12);
   }
   if (f_help || argc==1){
     print_usage();
+    nl_socket_free(nlsocket);
     exit(0);
   }
   // Termination Signals
@@ -180,14 +208,14 @@ int main(int argc, char* argv[]) {
   signal(SIGKILL, sig_stop);
   signal(SIGQUIT, sig_stop);
   signal(SIGTERM, sig_stop);
-  //signal(SIGTSTP, sig_stop);
+  /*signal(SIGTSTP, sig_stop);
   filedr = open(rxpath, O_RDONLY );
   filedt = open(txpath, O_RDONLY );
 
   if( !filedr || !filedt ) {
     printf("Open file error\n");
     exit(13);
-  }
+  }*/
   alloc_num();
   mpz_set_str(kB,"1000",10);
   mpz_set_str(MB,"1000000",10);
@@ -213,10 +241,9 @@ int main(int argc, char* argv[]) {
   if (f_greater){
     mpz_set_str(min_Bps,greater,10);
   }
-  
   char rxbuf[128];
   char txbuf[128];
-  int nbytesr=0, nbytest=0;
+  //int nbytesr=0, nbytest=0;*/
   unsigned long int ui_hours=0,ui_minutes=0,ui_sec=0;
   char newrxmax=0,newtxmax=0;
   char bigr=0,bigt=0,bigsr=0,bigst=0;
@@ -228,11 +255,19 @@ int main(int argc, char* argv[]) {
   }
   while(1) {
     printrt=1;
-    memset(rxbuf,0,sizeof(rxbuf));
+    /*memset(rxbuf,0,sizeof(rxbuf));
     memset(txbuf,0,sizeof(txbuf));
     nbytesr = read(filedr, rxbuf, 128);
-    nbytest = read(filedt, txbuf, 128);
-    if(nbytesr > 0 && nbytest > 0) {
+    nbytest = read(filedt, txbuf, 128);*/
+    //if(nbytesr > 0 && nbytest > 0) {
+    if(rtnl_link_get_kernel(nlsocket,0,interface,&nlink)==0){
+      rx_bytes=rtnl_link_get_stat(nlink,RTNL_LINK_RX_BYTES);
+      tx_bytes=rtnl_link_get_stat(nlink,RTNL_LINK_TX_BYTES);
+      rtnl_link_put(nlink);
+      memset(rxbuf,0,sizeof(rxbuf));
+      memset(txbuf,0,sizeof(txbuf));
+      sprintf(rxbuf,"%" PRIu64,rx_bytes);
+      sprintf(txbuf,"%" PRIu64,tx_bytes);
       mpz_set_str(a,rxbuf,10);
       mpz_set_str(b,txbuf,10);
       // first init
@@ -384,8 +419,8 @@ int main(int argc, char* argv[]) {
         // end
         printf("\n");
       }
-      lseek(filedr,(off_t)0,SEEK_SET);
-      lseek(filedt,(off_t)0,SEEK_SET);
+      //lseek(filedr,(off_t)0,SEEK_SET);
+      //lseek(filedt,(off_t)0,SEEK_SET);
       // cur to prev
       mpz_set(aa,a);
       mpz_set(bb,b);
@@ -394,8 +429,9 @@ int main(int argc, char* argv[]) {
     sleep(1);
     mpz_add_ui(timer,timer,1);
   }
-  close(filedr);
-  close(filedt);
+  //close(filedr);
+  //close(filedt);
+  nl_socket_free(nlsocket);
   free_num();
   printf("exit\n");
   exit(0);
@@ -403,8 +439,9 @@ int main(int argc, char* argv[]) {
 
 void sig_stop(int sig)
 {
-  close(filedr);
-  close(filedt);
+  //close(filedr);
+  //close(filedt);
+  nl_socket_free(nlsocket);
   free_num();
   printf("Exit\n");
   exit(0);
