@@ -1,15 +1,21 @@
 // gcc ifrtstat.c -o ifrtstat -lgmp
 #include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+#include <stdlib.h>
+
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <string.h>
 #include <signal.h>
 #include <time.h>
+
 #include <gmp.h>
 
+#include <netlink/netlink.h>
+#include <netlink/cache.h>
+#include <netlink/route/link.h>
 
 #define PROG_NAME "ifrtstat"
 #define IF_LEN 16
@@ -168,7 +174,7 @@ int main(int argc, char* argv[]) {
     print_usage();
     exit(0);
   }
-  
+  // Termination Signals
   signal(SIGINT, sig_stop);
   signal(SIGHUP, sig_stop);
   signal(SIGKILL, sig_stop);
@@ -183,16 +189,16 @@ int main(int argc, char* argv[]) {
     exit(13);
   }
   alloc_num();
-  mpz_init_set_str(kB,"1000",10);
-  mpz_init_set_str(MB,"1000000",10);
-  mpz_init_set_str(GB,"1000000000",10);
-  mpz_init_set_str(TB,"1000000000000",10);
-  mpz_init_set_str(PB,"1000000000000000",10);
-  mpz_init_set_str(kBborder,"1000",10);
-  mpz_init_set_str(MBborder,"1000000",10);
-  mpz_init_set_str(GBborder,"1000000000",10);
-  mpz_init_set_str(TBborder,"1000000000000",10);
-  mpz_init_set_str(PBborder,"1000000000000000",10);
+  mpz_set_str(kB,"1000",10);
+  mpz_set_str(MB,"1000000",10);
+  mpz_set_str(GB,"1000000000",10);
+  mpz_set_str(TB,"1000000000000",10);
+  mpz_set_str(PB,"1000000000000000",10);
+  mpz_set_str(kBborder,"1000",10);
+  mpz_set_str(MBborder,"1000000",10);
+  mpz_set_str(GBborder,"1000000000",10);
+  mpz_set_str(TBborder,"1000000000000",10);
+  mpz_set_str(PBborder,"1000000000000000",10);
   mpz_set_ui(timer,0);
   mpz_set_ui(sa,0);
   mpz_set_ui(sb,0);
@@ -205,9 +211,9 @@ int main(int argc, char* argv[]) {
     mpz_set_ui(maxtx,0);
   }
   if (f_greater){
-    mpz_init_set_str(min_Bps,greater,10);
-    //gmp_printf("%Zd\n",min_Bps);
+    mpz_set_str(min_Bps,greater,10);
   }
+  
   char rxbuf[128];
   char txbuf[128];
   int nbytesr=0, nbytest=0;
@@ -227,14 +233,14 @@ int main(int argc, char* argv[]) {
     nbytesr = read(filedr, rxbuf, 128);
     nbytest = read(filedt, txbuf, 128);
     if(nbytesr > 0 && nbytest > 0) {
-      mpz_init_set_str(a,rxbuf,10);
-      mpz_init_set_str(b,txbuf,10);
+      mpz_set_str(a,rxbuf,10);
+      mpz_set_str(b,txbuf,10);
       // first init
       if (mpz_cmp_ui(timer,0)==0){
-        mpz_init_set(aa,a);
-        mpz_init_set(sa,a);
-        mpz_init_set(bb,b);
-        mpz_init_set(sb,b);
+        mpz_set(aa,a);
+        mpz_set(sa,a);
+        mpz_set(bb,b);
+        mpz_set(sb,b);
       }
       bigr=bigt=bigsr=bigst=0;
       memset(rj,0,sizeof(rj));
@@ -253,8 +259,8 @@ int main(int argc, char* argv[]) {
       mpz_set(_st,st);
       // MAX
       if (f_max){
-        if (mpz_cmp(r,maxrx)>0){ mpz_init_set(maxrx,r); newrxmax=1;}
-        if (mpz_cmp(t,maxtx)>0){ mpz_init_set(maxtx,t); newtxmax=1;}
+        if (mpz_cmp(r,maxrx)>0){ mpz_set(maxrx,r); newrxmax=1;}
+        if (mpz_cmp(t,maxtx)>0){ mpz_set(maxtx,t); newtxmax=1;}
       }
       // over then
       if (f_greater){
@@ -381,8 +387,8 @@ int main(int argc, char* argv[]) {
       lseek(filedr,(off_t)0,SEEK_SET);
       lseek(filedt,(off_t)0,SEEK_SET);
       // cur to prev
-      mpz_init_set(aa,a);
-      mpz_init_set(bb,b);
+      mpz_set(aa,a);
+      mpz_set(bb,b);
     }
     else printf("No data...\n");
     sleep(1);
