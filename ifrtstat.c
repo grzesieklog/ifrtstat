@@ -170,7 +170,11 @@ int main(int argc, char* argv[]) {
   }
   
   signal(SIGINT, sig_stop);
-  signal(SIGTSTP, sig_stop);
+  signal(SIGHUP, sig_stop);
+  signal(SIGKILL, sig_stop);
+  signal(SIGQUIT, sig_stop);
+  signal(SIGTERM, sig_stop);
+  //signal(SIGTSTP, sig_stop);
   filedr = open(rxpath, O_RDONLY );
   filedt = open(txpath, O_RDONLY );
 
@@ -324,13 +328,17 @@ int main(int argc, char* argv[]) {
           ui_sec = ui_sec-(ui_minutes*60);
           printf("[");
           if (mpz_cmp_ui(days,0)>0)
-            gmp_printf("%Zd%s",days,"d");
-          if (ui_hours)
-            printf("%u%s",ui_hours,"h");
-          if (ui_minutes)
-            printf("%u%s",ui_minutes,"m");
+            //gmp_printf("%Zd%s",days,"d");
+            gmp_printf("%Zd%s%02u%s%02u%s%02u]",days,"d",ui_hours,"h",ui_minutes,"m",ui_sec);
+          else if (ui_hours)
+            //printf("%u%s",ui_hours,"h");
+            printf("%u%s%02u%s%02u]",ui_hours,"h",ui_minutes,"m",ui_sec);
+          else if (ui_minutes)
+            //printf("%u%s",ui_minutes,"m");
+            printf("%u%s%02u]",ui_minutes,"m",ui_sec);
+          else
+            printf("%02u]",ui_sec);
           //gmp_printf("[%Zd%s%u%s%u%s%02u]",days,"d",ui_hours,"h",ui_minutes,"m",ui_sec);
-          printf("%02u]",ui_sec);
         }
         else
           gmp_printf("[%Zd]",timer);
@@ -392,6 +400,7 @@ void sig_stop(int sig)
   close(filedr);
   close(filedt);
   free_num();
+  printf("Exit\n");
   exit(0);
 }
 void get_time(){
