@@ -2,6 +2,7 @@
 #include <inttypes.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -103,6 +104,14 @@ int main(int argc, char* argv[]) {
         }
         if (strlen(optarg)>MAX_GOPT_LEN){
           printf("Value of -g option is too long.\n");
+          exit(7);
+        }
+        uint8_t is_dig=1;
+        for (char* s=optarg;*s!=0;s++){
+          if (isdigit((unsigned char)*s)==0) is_dig=0;
+        }
+        if (!is_dig){
+          printf("Value of -g option is not digits.\n");
           exit(7);
         }
         // TODO clear '=' from val
