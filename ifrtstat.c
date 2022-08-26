@@ -30,8 +30,7 @@ char *interface;
 struct rtnl_link *nlink;
 struct nl_sock *nlsocket;
 
-mpz_t kB,MB,GB,TB,PB;
-mpz_t kBborder,MBborder,GBborder,TBborder,PBborder;
+mpz_t kB,MB,GB,TB,PB,EB;
 mpz_t sa,sb,a,b,aa,bb;
 mpz_t maxrx,maxtx;
 mpz_t days,timer;
@@ -202,11 +201,7 @@ int main(int argc, char* argv[]) {
   mpz_set_str(GB,"1000000000",10);
   mpz_set_str(TB,"1000000000000",10);
   mpz_set_str(PB,"1000000000000000",10);
-  mpz_set_str(kBborder,"1000",10);
-  mpz_set_str(MBborder,"1000000",10);
-  mpz_set_str(GBborder,"1000000000",10);
-  mpz_set_str(TBborder,"1000000000000",10);
-  mpz_set_str(PBborder,"1000000000000000",10);
+  mpz_set_str(EB,"1000000000000000000",10);
   mpz_set_ui(timer,0);
   mpz_set_ui(sa,0);
   mpz_set_ui(sb,0);
@@ -277,51 +272,51 @@ int main(int argc, char* argv[]) {
       }
       // cal units
       if (printrt && !f_Bps){
-        if (mpz_cmp(sr,PBborder)>0)
+        if (mpz_cmp(sr,EB)>0)
+          { mpz_fdiv_qr(sr,rem_sr,sr,EB); mpz_fdiv_q(rem_sr,rem_sr,EB); strcpy(srj,"EB"); bigsr=1;}
+        else if (mpz_cmp(sr,PB)>0)
           { mpz_fdiv_qr(sr,rem_sr,sr,PB); mpz_fdiv_q(rem_sr,rem_sr,TB); strcpy(srj,"PB"); bigsr=1;}
-        else if (mpz_cmp(sr,TBborder)>0)
+        else if (mpz_cmp(sr,TB)>0)
           { mpz_fdiv_qr(sr,rem_sr,sr,TB); mpz_fdiv_q(rem_sr,rem_sr,GB); strcpy(srj,"TB"); bigsr=1;}
-        else if (mpz_cmp(sr,GBborder)>0)
+        else if (mpz_cmp(sr,GB)>0)
           { mpz_fdiv_qr(sr,rem_sr,sr,GB); mpz_fdiv_q(rem_sr,rem_sr,MB); strcpy(srj,"GB"); bigsr=1;}
-        else if (mpz_cmp(sr,MBborder)>0)
+        else if (mpz_cmp(sr,MB)>0)
           { mpz_fdiv_qr(sr,rem_sr,sr,MB); mpz_fdiv_q(rem_sr,rem_sr,kB); strcpy(srj,"MB"); bigsr=1;}
-        else if (mpz_cmp(sr,kBborder)>0)
+        else if (mpz_cmp(sr,kB)>0)
           { mpz_fdiv_qr(sr,rem_sr,sr,kB); strcpy(srj,"kB"); bigsr=1;}
         else
           strcpy(srj,"B");
-        if (mpz_cmp(st,PBborder)>0)
+        if (mpz_cmp(st,EB)>0)
+          { mpz_fdiv_qr(st,rem_st,st,EB); mpz_fdiv_q(rem_st,rem_st,EB); strcpy(stj,"EB"); bigst=1;}
+        else if (mpz_cmp(st,PB)>0)
           { mpz_fdiv_qr(st,rem_st,st,PB); mpz_fdiv_q(rem_st,rem_st,TB); strcpy(stj,"PB"); bigst=1;}
-        else if (mpz_cmp(st,TBborder)>0)
+        else if (mpz_cmp(st,TB)>0)
           { mpz_fdiv_qr(st,rem_st,st,TB); mpz_fdiv_q(rem_st,rem_st,GB); strcpy(stj,"TB"); bigst=1;}
-        else if (mpz_cmp(st,GBborder)>0)
+        else if (mpz_cmp(st,GB)>0)
           { mpz_fdiv_qr(st,rem_st,st,GB); mpz_fdiv_q(rem_st,rem_st,MB); strcpy(stj,"GB"); bigst=1;}
-        else if (mpz_cmp(st,MBborder)>0)
+        else if (mpz_cmp(st,MB)>0)
           { mpz_fdiv_qr(st,rem_st,st,MB); mpz_fdiv_q(rem_st,rem_st,kB); strcpy(stj,"MB"); bigst=1;}
-        else if (mpz_cmp(st,kBborder)>0)
+        else if (mpz_cmp(st,kB)>0)
           { mpz_fdiv_qr(st,rem_st,st,kB); strcpy(stj,"kB");bigst=1;}
         else
           strcpy(stj,"B");
-        if (mpz_cmp(r,PBborder)>0)
-          { mpz_fdiv_qr(r,rem_r,r,PB); mpz_fdiv_q(rem_r,rem_r,TB); strcpy(rj,"PB/s"); bigr=1;}
-        else if (mpz_cmp(r,TBborder)>0)
+        if (mpz_cmp(r,TB)>0)
           { mpz_fdiv_qr(r,rem_r,r,TB); mpz_fdiv_q(rem_r,rem_r,GB); strcpy(rj,"TB/s"); bigr=1;}
-        else if (mpz_cmp(r,GBborder)>0)
-            { mpz_fdiv_qr(r,rem_r,r,GB); mpz_fdiv_q(rem_r,rem_r,MB); strcpy(rj,"GB/s"); bigr=1;}
-        else if (mpz_cmp(r,MBborder)>0)
+        else if (mpz_cmp(r,GB)>0)
+          { mpz_fdiv_qr(r,rem_r,r,GB); mpz_fdiv_q(rem_r,rem_r,MB); strcpy(rj,"GB/s"); bigr=1;}
+        else if (mpz_cmp(r,MB)>0)
           { mpz_fdiv_qr(r,rem_r,r,MB); mpz_fdiv_q(rem_r,rem_r,kB); strcpy(rj,"MB/s"); bigr=1;}
-        else if (mpz_cmp(r,kBborder)>0)
+        else if (mpz_cmp(r,kB)>0)
           { mpz_fdiv_qr(r,rem_r,r,kB); strcpy(rj,"kB/s"); bigr=1;}
         else
           strcpy(rj,"B/s");
-        if (mpz_cmp(t,PBborder)>0)
-          { mpz_fdiv_qr(t,rem_t,t,PB); mpz_fdiv_q(rem_t,rem_t,TB); strcpy(tj,"PB/s"); bigt=1;}
-          else if (mpz_cmp(t,TBborder)>0)
+        if (mpz_cmp(t,TB)>0)
           { mpz_fdiv_qr(t,rem_t,t,TB); mpz_fdiv_q(rem_t,rem_t,GB); strcpy(tj,"TB/s"); bigt=1;}
-        else if (mpz_cmp(t,GBborder)>0)
+        else if (mpz_cmp(t,GB)>0)
           { mpz_fdiv_qr(t,rem_t,t,GB); mpz_fdiv_q(rem_t,rem_t,MB); strcpy(tj,"GB/s"); bigt=1;}
-        else if (mpz_cmp(t,MBborder)>0)
+        else if (mpz_cmp(t,MB)>0)
           { mpz_fdiv_qr(t,rem_t,t,MB); mpz_fdiv_q(rem_t,rem_t,kB); strcpy(tj,"MB/s"); bigt=1;}
-        else if (mpz_cmp(t,kBborder)>0)
+        else if (mpz_cmp(t,kB)>0)
           { mpz_fdiv_qr(t,rem_t,t,kB); strcpy(tj,"kB/s"); bigt=1;}
         else
           strcpy(tj,"B/s");
@@ -430,11 +425,7 @@ void alloc_num(){
   mpz_init(GB);
   mpz_init(TB);
   mpz_init(PB);
-  mpz_init(kBborder);
-  mpz_init(MBborder);
-  mpz_init(GBborder);
-  mpz_init(TBborder);
-  mpz_init(PBborder);
+  mpz_init(EB);
   mpz_init(timer);
   mpz_init(days);
   mpz_init(min_Bps);
@@ -492,11 +483,7 @@ void free_num(){
   mpz_clear(GB);
   mpz_clear(TB);
   mpz_clear(PB);
-  mpz_clear(kBborder);
-  mpz_clear(MBborder);
-  mpz_clear(GBborder);
-  mpz_clear(TBborder);
-  mpz_clear(PBborder);
+  mpz_clear(EB);
 }
 
 void print_usage(){
