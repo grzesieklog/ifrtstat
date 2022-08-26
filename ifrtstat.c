@@ -273,7 +273,7 @@ int main(int argc, char* argv[]) {
       // cal units
       if (printrt && !f_Bps){
         if (mpz_cmp(sr,EB)>0)
-          { mpz_fdiv_qr(sr,rem_sr,sr,EB); mpz_fdiv_q(rem_sr,rem_sr,EB); strcpy(srj,"EB"); bigsr=1;}
+          { mpz_fdiv_qr(sr,rem_sr,sr,EB); mpz_fdiv_q(rem_sr,rem_sr,PB); strcpy(srj,"EB"); bigsr=1;}
         else if (mpz_cmp(sr,PB)>0)
           { mpz_fdiv_qr(sr,rem_sr,sr,PB); mpz_fdiv_q(rem_sr,rem_sr,TB); strcpy(srj,"PB"); bigsr=1;}
         else if (mpz_cmp(sr,TB)>0)
@@ -287,7 +287,7 @@ int main(int argc, char* argv[]) {
         else
           strcpy(srj,"B");
         if (mpz_cmp(st,EB)>0)
-          { mpz_fdiv_qr(st,rem_st,st,EB); mpz_fdiv_q(rem_st,rem_st,EB); strcpy(stj,"EB"); bigst=1;}
+          { mpz_fdiv_qr(st,rem_st,st,EB); mpz_fdiv_q(rem_st,rem_st,PB); strcpy(stj,"EB"); bigst=1;}
         else if (mpz_cmp(st,PB)>0)
           { mpz_fdiv_qr(st,rem_st,st,PB); mpz_fdiv_q(rem_st,rem_st,TB); strcpy(stj,"PB"); bigst=1;}
         else if (mpz_cmp(st,TB)>0)
