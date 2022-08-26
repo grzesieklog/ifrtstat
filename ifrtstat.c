@@ -45,6 +45,7 @@ uint8_t f_int=0,
         f_date=0,
         f_timer=0,
         f_greater=0,
+        f_Bps=0,
         f_help=0;
 
 void sig_stop(int sig);
@@ -57,7 +58,7 @@ int main(int argc, char* argv[]) {
   uint64_t rx_bytes=0,tx_bytes=0;
 
   int opt;
-  const char options[] = "hmdtg:";
+  const char options[] = "hmdtg:b";
   char *greater;
   struct stat fstat;
   uint8_t flag_sum=0;
@@ -119,6 +120,14 @@ int main(int argc, char* argv[]) {
         f_greater=1;
         flag_sum++;
         break;
+      case 'b':
+        if (f_Bps>0){
+          printf("Option -b is duplicated.\n");
+          exit(7);
+        }
+        f_Bps=1;
+        flag_sum++;
+        break;
       case '?':
         printf("Use option -h to print help.\n");
         exit(7);
@@ -155,7 +164,7 @@ int main(int argc, char* argv[]) {
     }
   }
   // check args count
-  if (flag_sum > strlen(options)+1 || // +1: -g val
+  if (flag_sum > strlen(options)-1 || // has ':'
       int_sum > 1){
     printf("Too many args...\n");
     nl_socket_free(nlsocket);
@@ -267,7 +276,7 @@ int main(int argc, char* argv[]) {
         if (mpz_cmp(r,min_Bps)<0 && mpz_cmp(t,min_Bps)<0) printrt=0;
       }
       // cal units
-      if (printrt){
+      if (printrt && !f_Bps){
         if (mpz_cmp(sr,PBborder)>0)
           { mpz_fdiv_qr(sr,rem_sr,sr,PB); mpz_fdiv_q(rem_sr,rem_sr,TB); strcpy(srj,"PB"); bigsr=1;}
         else if (mpz_cmp(sr,TBborder)>0)
@@ -315,6 +324,13 @@ int main(int argc, char* argv[]) {
         else if (mpz_cmp(t,kBborder)>0)
           { mpz_fdiv_qr(t,rem_t,t,kB); strcpy(tj,"kB/s"); bigt=1;}
         else
+          strcpy(tj,"B/s");
+      }
+      // option -b
+      if (printrt && f_Bps){
+          strcpy(srj,"B");
+          strcpy(stj,"B");
+          strcpy(rj,"B/s");
           strcpy(tj,"B/s");
       }
       // print
@@ -490,6 +506,7 @@ void print_usage(){
    -d      print date on each line\n\
    -t      print counter divided into days/hours/minutes\n\
    -g val  print only Bps values greater than val\n\
+   -b      print rates as Bps, don't calculate it\n\
    -h      print this message\n\
 \n", stdout);
   printf("%s is a Linux network interface rx/tx status.\n",PROG_NAME);
