@@ -21,7 +21,7 @@
 #define MAX_IF_LEN 16
 #define MAX_GOPT_LEN 20
 #define DAY_IN_SEC 60*60*24
-#define UINTMAX_MAX_AS_STR "18446744073709551615"
+#define UINTMAX_MAX_AS_STR sizeof("18446744073709551615")
 
 time_t now;
 char date_t[32];
@@ -216,8 +216,8 @@ int main(int argc, char* argv[]) {
   if (f_greater){
     mpz_set_str(min_Bps,greater,10);
   }
-  char rxbuf[strlen(UINTMAX_MAX_AS_STR)+2];
-  char txbuf[strlen(UINTMAX_MAX_AS_STR)+2];
+  char rxbuf[UINTMAX_MAX_AS_STR+2];
+  char txbuf[UINTMAX_MAX_AS_STR+2];
   uint32_t ui_hours=0,ui_minutes=0,ui_sec=0;
   uint8_t newrxmax=0,newtxmax=0;
   uint8_t bigr=0,bigt=0,bigsr=0,bigst=0;
@@ -246,11 +246,6 @@ int main(int argc, char* argv[]) {
         mpz_set(bb,b);
         mpz_set(sb,b);
       }
-      bigr=bigt=bigsr=bigst=0;
-      memset(rj,0,sizeof(rj));
-      memset(tj,0,sizeof(tj));
-      memset(srj,0,sizeof(srj));
-      memset(stj,0,sizeof(stj));
       // diff of B
       mpz_sub(r,a,aa);
       mpz_sub(t,b,bb);
@@ -269,6 +264,13 @@ int main(int argc, char* argv[]) {
       // over then
       if (f_greater){
         if (mpz_cmp(r,min_Bps)<0 && mpz_cmp(t,min_Bps)<0) printrt=0;
+      }
+      if (printrt){
+        bigr=bigt=bigsr=bigst=0;
+        memset(rj,0,sizeof(rj));
+        memset(tj,0,sizeof(tj));
+        memset(srj,0,sizeof(srj));
+        memset(stj,0,sizeof(stj));
       }
       // cal units
       if (printrt && !f_Bps){
