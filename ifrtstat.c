@@ -256,10 +256,12 @@ int main(int argc, char* argv[]) {
       else {
         if (mpz_cmp(a,aa)<0) {
           mpz_sub(sa,sa,max_u64);
+          mpz_sub(aa,aa,max_u64);
           printf("%s %s INF: RX counter is overflow\n",PROG_NAME,interface);
         }
         if (mpz_cmp(b,bb)<0) {
           mpz_sub(sb,sb,max_u64);
+          mpz_sub(bb,bb,max_u64);
           printf("%s %s INF: TX counter is overflow\n",PROG_NAME,interface);
         }
       }
