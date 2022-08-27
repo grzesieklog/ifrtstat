@@ -38,6 +38,9 @@ mpz_t min_Bps;
 mpz_t r,t,sr,st;
 mpz_t _r,_t,_sr,_st;
 mpz_t rem_r,rem_t,rem_sr,rem_st;
+#ifdef OVERFLOW
+mpz_t max_u64;
+#endif
 
 uint8_t f_int=0,
         f_max=0,
@@ -209,6 +212,9 @@ int main(int argc, char* argv[]) {
   mpz_set_ui(b,0);
   mpz_set_ui(aa,0);
   mpz_set_ui(bb,0);
+#ifdef OVERFLOW
+  mpz_set_str(max_u64,"18446744073709551616",10);
+#endif
   if (f_max){
     mpz_set_ui(maxrx,0);
     mpz_set_ui(maxtx,0);
@@ -222,7 +228,7 @@ int main(int argc, char* argv[]) {
   uint8_t newrxmax=0,newtxmax=0;
   uint8_t bigr=0,bigt=0,bigsr=0,bigst=0;
   char rj[6],tj[6],srj[4],stj[4];
-  char printrt;
+  uint8_t printrt;
   if (!f_date){
     get_time();
     printf("%s %s start at %s\n",PROG_NAME,interface,date_t);
@@ -246,6 +252,18 @@ int main(int argc, char* argv[]) {
         mpz_set(bb,b);
         mpz_set(sb,b);
       }
+#ifdef OVERFLOW
+      else {
+        if (mpz_cmp(a,aa)<0) {
+          mpz_sub(sa,sa,max_u64);
+          printf("%s %s INF: RX counter is overflow\n",PROG_NAME,interface);
+        }
+        if (mpz_cmp(b,bb)<0) {
+          mpz_sub(sb,sb,max_u64);
+          printf("%s %s INF: TX counter is overflow\n",PROG_NAME,interface);
+        }
+      }
+#endif
       // diff of B
       mpz_sub(r,a,aa);
       mpz_sub(t,b,bb);
@@ -453,6 +471,9 @@ void alloc_num(){
   mpz_init(rem_t);
   mpz_init(rem_sr);
   mpz_init(rem_st);
+#ifdef OVERFLOW
+  mpz_init(max_u64);
+#endif
 }
 void free_num(){
   mpz_clear(timer);
@@ -486,6 +507,9 @@ void free_num(){
   mpz_clear(TB);
   mpz_clear(PB);
   mpz_clear(EB);
+#ifdef OVERFLOW
+  mpz_clear(max_u64);
+#endif
 }
 
 void print_usage(){
@@ -499,6 +523,9 @@ void print_usage(){
    -h      print this message\n\
 \n", stdout);
   printf("%s is a Linux network interface rx/tx status.\n",PROG_NAME);
+#ifdef OVERFLOW
+  printf("Compiled with counter overflow\n");
+#endif
 }
 
 
