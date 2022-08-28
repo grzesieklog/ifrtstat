@@ -36,7 +36,6 @@ mpz_t maxrx,maxtx;
 mpz_t days,timer;
 mpz_t min_Bps;
 mpz_t r,t,sr,st;
-mpz_t _r,_t,_sr,_st;
 mpz_t rem_r,rem_t,rem_sr,rem_st;
 #ifdef OVERFLOW
 mpz_t max_u64;
@@ -271,11 +270,6 @@ int main(int argc, char* argv[]) {
       mpz_sub(t,b,bb);
       mpz_sub(sr,a,sa);
       mpz_sub(st,b,sb);
-      // save org
-      mpz_set(_r,r);
-      mpz_set(_t,t);
-      mpz_set(_sr,sr);
-      mpz_set(_st,st);
       // MAX
       if (f_max){
         if (mpz_cmp(r,maxrx)>0){ mpz_set(maxrx,r); newrxmax=1;}
@@ -465,10 +459,6 @@ void alloc_num(){
   mpz_init(t);  // cur tx
   mpz_init(sr);  // sum rx
   mpz_init(st);  // sum tx
-  mpz_init(_r);  // cur rx B
-  mpz_init(_t);  // cur tx B
-  mpz_init(_sr);  // sum rx B
-  mpz_init(_st);  // sum tx B
   mpz_init(rem_r);  // remainder from dividing
   mpz_init(rem_t);
   mpz_init(rem_sr);
@@ -495,10 +485,6 @@ void free_num(){
   mpz_clear(t);
   mpz_clear(sr);
   mpz_clear(st);
-  mpz_clear(_r);
-  mpz_clear(_t);
-  mpz_clear(_sr);
-  mpz_clear(_st);
   mpz_clear(rem_r);
   mpz_clear(rem_t);
   mpz_clear(rem_sr);
