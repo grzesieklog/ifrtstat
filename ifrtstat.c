@@ -407,6 +407,7 @@ int main(int argc, char* argv[]) {
         }
         // end
         printf("\n");
+        fflush(stdout);
       }
       // cur to prev
       mpz_set(aa,a);
