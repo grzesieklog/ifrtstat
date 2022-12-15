@@ -316,7 +316,6 @@ int main(int argc, char* argv[]) {
         memset(stj,0,sizeof(stj));
       }
       // cal units
-      //if (printrt && (!f_Bps && !f_bps) ){
       if (printrt && f_conv){
         // bit or Bytes
         if (f_bps && !f_Bps)
@@ -531,112 +530,112 @@ void free_num(){
 }
 
 void conv(mpz_t* val, mpz_t* rem, uint8_t* big_flag, char* units, uint8_t sum){
-        if (mpz_cmp(*val,exa)>0)
-        {
-          mpz_fdiv_qr(*val,*rem,*val,exa);
-          mpz_fdiv_q(*rem,*rem,peta);
-          if (f_bps)
-            if (sum)
-              strcpy(units,"Eb");
-            else
-              strcpy(units,"Eb/s");
-          else
-            if (sum)
-              strcpy(units,"EB");
-            else
-              strcpy(units,"EB/s");
-          *big_flag=1;
-        }
-        else if (mpz_cmp(*val,peta)>0)
-        {
-          mpz_fdiv_qr(*val,*rem,*val,peta);
-          mpz_fdiv_q(*rem,*rem,tera);
-          if (f_bps)
-            if (sum)
-              strcpy(units,"Pb");
-            else
-              strcpy(units,"Pb/s");
-          else
-            if (sum)
-              strcpy(units,"PB");
-            else
-              strcpy(units,"PB/s");
-          *big_flag=1;
-        }
-        else if (mpz_cmp(*val,tera)>0)
-        {
-          mpz_fdiv_qr(*val,*rem,*val,tera);
-          mpz_fdiv_q(*rem,*rem,giga);
-          if (f_bps)
-            if (sum)
-              strcpy(units,"Tb");
-            else
-              strcpy(units,"Tb/s");
-          else
-            if (sum)
-              strcpy(units,"TB");
-            else
-              strcpy(units,"TB/s");
-          *big_flag=1;
-        }
-        else if (mpz_cmp(*val,giga)>0)
-        {
-          mpz_fdiv_qr(*val,*rem,*val,giga);
-          mpz_fdiv_q(*rem,*rem,mega);
-          if (f_bps)
-            if (sum)
-              strcpy(units,"Gb");
-            else
-              strcpy(units,"Gb/s");
-          else
-            if (sum)
-              strcpy(units,"GB");
-            else
-              strcpy(units,"GB/s");
-          *big_flag=1;
-        }
-        else if (mpz_cmp(*val,mega)>0)
-        {
-          mpz_fdiv_qr(*val,*rem,*val,mega);
-          mpz_fdiv_q(*rem,*rem,kilo);
-          if (f_bps)
-            if (sum)
-              strcpy(units,"Mb");
-            else
-              strcpy(units,"Mb/s");
-          else
-            if (sum)
-              strcpy(units,"MB");
-            else
-              strcpy(units,"MB/s");
-          *big_flag=1;
-        }
-        else if (mpz_cmp(*val,kilo)>0)
-        {
-          mpz_fdiv_qr(*val,*rem,*val,kilo);
-          if (f_bps)
-            if (sum)
-              strcpy(units,"kb");
-            else
-              strcpy(units,"kb/s");
-          else
-            if (sum)
-              strcpy(units,"kB");
-            else
-              strcpy(units,"kB/s");
-          *big_flag=1;
-        }
-        else
-          if (f_bps)
-            if (sum)
-              strcpy(units,"bit");
-            else
-              strcpy(units,"bit/s");
-          else
-            if (sum)
-              strcpy(units,"B");
-            else
-              strcpy(units,"B/s");
+  if (mpz_cmp(*val,exa)>0)
+  {
+    mpz_fdiv_qr(*val,*rem,*val,exa);
+    mpz_fdiv_q(*rem,*rem,peta);
+    if (f_bps)
+      if (sum)
+        strcpy(units,"Eb");
+      else
+        strcpy(units,"Eb/s");
+    else
+      if (sum)
+        strcpy(units,"EB");
+      else
+        strcpy(units,"EB/s");
+    *big_flag=1;
+  }
+  else if (mpz_cmp(*val,peta)>0)
+  {
+    mpz_fdiv_qr(*val,*rem,*val,peta);
+    mpz_fdiv_q(*rem,*rem,tera);
+    if (f_bps)
+      if (sum)
+        strcpy(units,"Pb");
+      else
+        strcpy(units,"Pb/s");
+    else
+      if (sum)
+        strcpy(units,"PB");
+      else
+        strcpy(units,"PB/s");
+    *big_flag=1;
+  }
+  else if (mpz_cmp(*val,tera)>0)
+  {
+    mpz_fdiv_qr(*val,*rem,*val,tera);
+    mpz_fdiv_q(*rem,*rem,giga);
+    if (f_bps)
+      if (sum)
+        strcpy(units,"Tb");
+      else
+        strcpy(units,"Tb/s");
+    else
+      if (sum)
+        strcpy(units,"TB");
+      else
+        strcpy(units,"TB/s");
+    *big_flag=1;
+  }
+  else if (mpz_cmp(*val,giga)>0)
+  {
+    mpz_fdiv_qr(*val,*rem,*val,giga);
+    mpz_fdiv_q(*rem,*rem,mega);
+    if (f_bps)
+      if (sum)
+        strcpy(units,"Gb");
+      else
+        strcpy(units,"Gb/s");
+    else
+      if (sum)
+        strcpy(units,"GB");
+      else
+        strcpy(units,"GB/s");
+    *big_flag=1;
+  }
+  else if (mpz_cmp(*val,mega)>0)
+  {
+    mpz_fdiv_qr(*val,*rem,*val,mega);
+    mpz_fdiv_q(*rem,*rem,kilo);
+    if (f_bps)
+      if (sum)
+        strcpy(units,"Mb");
+      else
+        strcpy(units,"Mb/s");
+    else
+      if (sum)
+        strcpy(units,"MB");
+      else
+        strcpy(units,"MB/s");
+    *big_flag=1;
+  }
+  else if (mpz_cmp(*val,kilo)>0)
+  {
+    mpz_fdiv_qr(*val,*rem,*val,kilo);
+    if (f_bps)
+      if (sum)
+        strcpy(units,"kb");
+      else
+        strcpy(units,"kb/s");
+    else
+      if (sum)
+        strcpy(units,"kB");
+      else
+        strcpy(units,"kB/s");
+    *big_flag=1;
+  }
+  else
+    if (f_bps)
+      if (sum)
+        strcpy(units,"bit");
+      else
+        strcpy(units,"bit/s");
+    else
+      if (sum)
+        strcpy(units,"B");
+      else
+        strcpy(units,"B/s");
 }
 
 void print_usage(){
