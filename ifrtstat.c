@@ -21,7 +21,7 @@
 #define MAX_IF_LEN 16
 #define MAX_GOPT_LEN 20
 #define DAY_IN_SEC 60*60*24
-#define UINTMAX_MAX_AS_STR sizeof("18446744073709551615")
+#define UINTMAX_AS_STR sizeof("18446744073709551615")
 
 time_t now;
 char date_t[32];
@@ -30,36 +30,39 @@ char *interface;
 struct rtnl_link *nlink;
 struct nl_sock *nlsocket;
 
-mpz_t kB,MB,GB,TB,PB,EB;
+mpz_t kilo,mega,giga,tera,peta,exa;
 mpz_t sa,sb,a,b,aa,bb;
-mpz_t maxrx,maxtx;
+mpz_t maxrx,maxtx,maxrxp,maxtxp;
 mpz_t days,timer;
-mpz_t min_Bps;
+mpz_t pmin;
 mpz_t r,t,sr,st;
 mpz_t rem_r,rem_t,rem_sr,rem_st;
 #ifdef OVERFLOW
 mpz_t max_u64;
 #endif
 
-uint8_t f_int=0,
-        f_max=0,
-        f_date=0,
-        f_timer=0,
-        f_greater=0,
-        f_Bps=0,
-        f_help=0;
+uint8_t f_int=0;
+uint8_t f_max=0;
+uint8_t f_date=0;
+uint8_t f_timer=0;
+uint8_t f_greater=0;
+uint8_t f_Bps=0;
+uint8_t f_bps=1;
+uint8_t f_conv=0;
+uint8_t f_help=0;
 
 void sig_stop(int sig);
 void get_time();
 void alloc_num();
 void free_num();
 void print_usage();
+void conv(mpz_t* val, mpz_t* rem, uint8_t* big_flag, char* units, uint8_t sum);
 
 int main(int argc, char* argv[]) {
   uint64_t rx_bytes=0,tx_bytes=0;
 
   int opt;
-  const char options[] = "hmdtg:b";
+  const char options[] = "hmdtg:bBc";
   char *greater;
   struct stat fstat;
   uint8_t flag_sum=0;
@@ -121,12 +124,37 @@ int main(int argc, char* argv[]) {
         f_greater=1;
         flag_sum++;
         break;
-      case 'b':
+      case 'B':
         if (f_Bps>0){
-          printf("Option -b is duplicated.\n");
+          printf("Option -B is duplicated.\n");
+          exit(7);
+        }
+        if (f_bps>1){
+          printf("Option -b and -B can't use simultaneously.\n");
           exit(7);
         }
         f_Bps=1;
+        f_bps--;
+        flag_sum++;
+        break;
+      case 'b':
+        if (f_bps>1){
+          printf("Option -b is duplicated.\n");
+          exit(7);
+        } 
+        if (f_Bps){
+          printf("Option -b and -B can't use simultaneously.\n");
+          exit(7);
+        }
+        f_bps++;
+        flag_sum++;
+        break;
+      case 'c':
+        if (f_conv>0){
+          printf("Option -c is duplicated.\n");
+          exit(7);
+        }
+        f_conv=1;
         flag_sum++;
         break;
       case '?':
@@ -190,6 +218,7 @@ int main(int argc, char* argv[]) {
     nl_socket_free(nlsocket);
     exit(0);
   }
+  
   // Termination Signals
   signal(SIGINT, sig_stop);
   signal(SIGHUP, sig_stop);
@@ -198,12 +227,12 @@ int main(int argc, char* argv[]) {
   signal(SIGTERM, sig_stop);
   
   alloc_num();
-  mpz_set_str(kB,"1000",10);
-  mpz_set_str(MB,"1000000",10);
-  mpz_set_str(GB,"1000000000",10);
-  mpz_set_str(TB,"1000000000000",10);
-  mpz_set_str(PB,"1000000000000000",10);
-  mpz_set_str(EB,"1000000000000000000",10);
+  mpz_set_str(kilo,"1000",10);
+  mpz_set_str(mega,"1000000",10);
+  mpz_set_str(giga,"1000000000",10);
+  mpz_set_str(tera,"1000000000000",10);
+  mpz_set_str(peta,"1000000000000000",10);
+  mpz_set_str(exa,"1000000000000000000",10);
   mpz_set_ui(timer,0);
   mpz_set_ui(sa,0);
   mpz_set_ui(sb,0);
@@ -219,10 +248,10 @@ int main(int argc, char* argv[]) {
     mpz_set_ui(maxtx,0);
   }
   if (f_greater){
-    mpz_set_str(min_Bps,greater,10);
+    mpz_set_str(pmin,greater,10);
   }
-  char rxbuf[UINTMAX_MAX_AS_STR+2];
-  char txbuf[UINTMAX_MAX_AS_STR+2];
+  char rxbuf[UINTMAX_AS_STR+2];
+  char txbuf[UINTMAX_AS_STR+2];
   uint32_t ui_hours=0,ui_minutes=0,ui_sec=0;
   uint8_t newrxmax=0,newtxmax=0;
   uint8_t bigr=0,bigt=0,bigsr=0,bigst=0;
@@ -277,7 +306,7 @@ int main(int argc, char* argv[]) {
       }
       // over then
       if (f_greater){
-        if (mpz_cmp(r,min_Bps)<0 && mpz_cmp(t,min_Bps)<0) printrt=0;
+        if (mpz_cmp(r,pmin)<0 && mpz_cmp(t,pmin)<0) printrt=0;
       }
       if (printrt){
         bigr=bigt=bigsr=bigst=0;
@@ -287,62 +316,40 @@ int main(int argc, char* argv[]) {
         memset(stj,0,sizeof(stj));
       }
       // cal units
-      if (printrt && !f_Bps){
-        if (mpz_cmp(sr,EB)>0)
-          { mpz_fdiv_qr(sr,rem_sr,sr,EB); mpz_fdiv_q(rem_sr,rem_sr,PB); strcpy(srj,"EB"); bigsr=1;}
-        else if (mpz_cmp(sr,PB)>0)
-          { mpz_fdiv_qr(sr,rem_sr,sr,PB); mpz_fdiv_q(rem_sr,rem_sr,TB); strcpy(srj,"PB"); bigsr=1;}
-        else if (mpz_cmp(sr,TB)>0)
-          { mpz_fdiv_qr(sr,rem_sr,sr,TB); mpz_fdiv_q(rem_sr,rem_sr,GB); strcpy(srj,"TB"); bigsr=1;}
-        else if (mpz_cmp(sr,GB)>0)
-          { mpz_fdiv_qr(sr,rem_sr,sr,GB); mpz_fdiv_q(rem_sr,rem_sr,MB); strcpy(srj,"GB"); bigsr=1;}
-        else if (mpz_cmp(sr,MB)>0)
-          { mpz_fdiv_qr(sr,rem_sr,sr,MB); mpz_fdiv_q(rem_sr,rem_sr,kB); strcpy(srj,"MB"); bigsr=1;}
-        else if (mpz_cmp(sr,kB)>0)
-          { mpz_fdiv_qr(sr,rem_sr,sr,kB); strcpy(srj,"kB"); bigsr=1;}
-        else
+      //if (printrt && (!f_Bps && !f_bps) ){
+      if (printrt && f_conv){
+        // bit or Bytes
+        if (f_bps && !f_Bps)
+        {
+          mpz_mul_ui(r,r,8);
+          mpz_mul_ui(t,t,8);
+          mpz_mul_ui(sr,sr,8);
+          mpz_mul_ui(st,st,8);
+        }
+        // sum
+        conv(&sr, &rem_sr, &bigsr, srj, 1);
+        conv(&st, &rem_st, &bigst, stj, 1);
+        // rate
+        conv(&r, &rem_r, &bigr, rj, 0);
+        conv(&t, &rem_t, &bigt, tj, 0);
+      }
+      // option -B
+      if (printrt && f_Bps && !f_conv){
           strcpy(srj,"B");
-        if (mpz_cmp(st,EB)>0)
-          { mpz_fdiv_qr(st,rem_st,st,EB); mpz_fdiv_q(rem_st,rem_st,PB); strcpy(stj,"EB"); bigst=1;}
-        else if (mpz_cmp(st,PB)>0)
-          { mpz_fdiv_qr(st,rem_st,st,PB); mpz_fdiv_q(rem_st,rem_st,TB); strcpy(stj,"PB"); bigst=1;}
-        else if (mpz_cmp(st,TB)>0)
-          { mpz_fdiv_qr(st,rem_st,st,TB); mpz_fdiv_q(rem_st,rem_st,GB); strcpy(stj,"TB"); bigst=1;}
-        else if (mpz_cmp(st,GB)>0)
-          { mpz_fdiv_qr(st,rem_st,st,GB); mpz_fdiv_q(rem_st,rem_st,MB); strcpy(stj,"GB"); bigst=1;}
-        else if (mpz_cmp(st,MB)>0)
-          { mpz_fdiv_qr(st,rem_st,st,MB); mpz_fdiv_q(rem_st,rem_st,kB); strcpy(stj,"MB"); bigst=1;}
-        else if (mpz_cmp(st,kB)>0)
-          { mpz_fdiv_qr(st,rem_st,st,kB); strcpy(stj,"kB");bigst=1;}
-        else
           strcpy(stj,"B");
-        if (mpz_cmp(r,TB)>0)
-          { mpz_fdiv_qr(r,rem_r,r,TB); mpz_fdiv_q(rem_r,rem_r,GB); strcpy(rj,"TB/s"); bigr=1;}
-        else if (mpz_cmp(r,GB)>0)
-          { mpz_fdiv_qr(r,rem_r,r,GB); mpz_fdiv_q(rem_r,rem_r,MB); strcpy(rj,"GB/s"); bigr=1;}
-        else if (mpz_cmp(r,MB)>0)
-          { mpz_fdiv_qr(r,rem_r,r,MB); mpz_fdiv_q(rem_r,rem_r,kB); strcpy(rj,"MB/s"); bigr=1;}
-        else if (mpz_cmp(r,kB)>0)
-          { mpz_fdiv_qr(r,rem_r,r,kB); strcpy(rj,"kB/s"); bigr=1;}
-        else
           strcpy(rj,"B/s");
-        if (mpz_cmp(t,TB)>0)
-          { mpz_fdiv_qr(t,rem_t,t,TB); mpz_fdiv_q(rem_t,rem_t,GB); strcpy(tj,"TB/s"); bigt=1;}
-        else if (mpz_cmp(t,GB)>0)
-          { mpz_fdiv_qr(t,rem_t,t,GB); mpz_fdiv_q(rem_t,rem_t,MB); strcpy(tj,"GB/s"); bigt=1;}
-        else if (mpz_cmp(t,MB)>0)
-          { mpz_fdiv_qr(t,rem_t,t,MB); mpz_fdiv_q(rem_t,rem_t,kB); strcpy(tj,"MB/s"); bigt=1;}
-        else if (mpz_cmp(t,kB)>0)
-          { mpz_fdiv_qr(t,rem_t,t,kB); strcpy(tj,"kB/s"); bigt=1;}
-        else
           strcpy(tj,"B/s");
       }
-      // option -b
-      if (printrt && f_Bps){
-          strcpy(srj,"B");
-          strcpy(stj,"B");
-          strcpy(rj,"B/s");
-          strcpy(tj,"B/s");
+      // option -b (default f_bps)
+      if (printrt && f_bps && !f_conv){
+          strcpy(srj,"bit");
+          strcpy(stj,"bit");
+          strcpy(rj,"bit/s");
+          strcpy(tj,"bit/s");
+          mpz_mul_ui(r,r,8);
+          mpz_mul_ui(t,t,8);
+          mpz_mul_ui(sr,sr,8);
+          mpz_mul_ui(st,st,8);
       }
       // print
       if (mpz_cmp_ui(timer,0)>0 && printrt){
@@ -396,13 +403,31 @@ int main(int argc, char* argv[]) {
           gmp_printf("tx %Zd %s",t,tj);
         // max
         if (f_max){
-          if (newrxmax){
-            gmp_printf(" Max rx %Zd B/s",maxrx);
-            newrxmax=0;
+          if (f_bps && !f_Bps)
+          {
+            mpz_mul_ui(maxrxp,maxrx,8);
+            mpz_mul_ui(maxtxp,maxtx,8);
           }
+          else
+          {
+            mpz_set(maxrxp,maxrx);
+            mpz_set(maxtxp,maxtx);
+          }
+          if (newrxmax){
+            gmp_printf(" Max rx %Zd",maxrxp);
+            newrxmax=0;
+            if (f_bps && !f_Bps)
+              printf(" bit/s");
+            else
+              printf(" B/s");
+            }
           if (newtxmax){
-            gmp_printf(" Max tx %Zd B/s",maxtx);
+            gmp_printf(" Max tx %Zd",maxtxp);
             newtxmax=0;
+            if (f_bps && !f_Bps)
+              printf(" bit/s");
+            else
+              printf(" B/s");
           }
         }
         // end
@@ -437,15 +462,15 @@ void get_time(){
   date_t[strcspn(date_t,"\n")] = 0;
 }
 void alloc_num(){
-  mpz_init(kB);
-  mpz_init(MB);
-  mpz_init(GB);
-  mpz_init(TB);
-  mpz_init(PB);
-  mpz_init(EB);
+  mpz_init(kilo);
+  mpz_init(mega);
+  mpz_init(giga);
+  mpz_init(tera);
+  mpz_init(peta);
+  mpz_init(exa);
   mpz_init(timer);
   mpz_init(days);
-  mpz_init(min_Bps);
+  mpz_init(pmin);
   mpz_init(sa);  // save first a (tx) B
   mpz_init(sb);  // save first b (tx) B
   mpz_init(a);  // read rx B
@@ -455,6 +480,8 @@ void alloc_num(){
   if (f_max){
     mpz_init(maxrx);
     mpz_init(maxtx);
+    mpz_init(maxrxp);
+    mpz_init(maxtxp);
   }
   mpz_init(r);  // cur rx
   mpz_init(t);  // cur tx
@@ -471,7 +498,7 @@ void alloc_num(){
 void free_num(){
   mpz_clear(timer);
   mpz_clear(days);
-  mpz_clear(min_Bps);
+  mpz_clear(pmin);
   mpz_clear(sa);
   mpz_clear(sb);
   mpz_clear(a);
@@ -481,6 +508,8 @@ void free_num(){
   if (f_max){
     mpz_clear(maxrx);
     mpz_clear(maxtx);
+    mpz_clear(maxrxp);
+    mpz_clear(maxtxp);
   }
   mpz_clear(r);
   mpz_clear(t);
@@ -490,15 +519,124 @@ void free_num(){
   mpz_clear(rem_t);
   mpz_clear(rem_sr);
   mpz_clear(rem_st);
-  mpz_clear(kB);
-  mpz_clear(MB);
-  mpz_clear(GB);
-  mpz_clear(TB);
-  mpz_clear(PB);
-  mpz_clear(EB);
+  mpz_clear(kilo);
+  mpz_clear(mega);
+  mpz_clear(giga);
+  mpz_clear(tera);
+  mpz_clear(peta);
+  mpz_clear(exa);
 #ifdef OVERFLOW
   mpz_clear(max_u64);
 #endif
+}
+
+void conv(mpz_t* val, mpz_t* rem, uint8_t* big_flag, char* units, uint8_t sum){
+        if (mpz_cmp(*val,exa)>0)
+        {
+          mpz_fdiv_qr(*val,*rem,*val,exa);
+          mpz_fdiv_q(*rem,*rem,peta);
+          if (f_bps)
+            if (sum)
+              strcpy(units,"Eb");
+            else
+              strcpy(units,"Eb/s");
+          else
+            if (sum)
+              strcpy(units,"EB");
+            else
+              strcpy(units,"EB/s");
+          *big_flag=1;
+        }
+        else if (mpz_cmp(*val,peta)>0)
+        {
+          mpz_fdiv_qr(*val,*rem,*val,peta);
+          mpz_fdiv_q(*rem,*rem,tera);
+          if (f_bps)
+            if (sum)
+              strcpy(units,"Pb");
+            else
+              strcpy(units,"Pb/s");
+          else
+            if (sum)
+              strcpy(units,"PB");
+            else
+              strcpy(units,"PB/s");
+          *big_flag=1;
+        }
+        else if (mpz_cmp(*val,tera)>0)
+        {
+          mpz_fdiv_qr(*val,*rem,*val,tera);
+          mpz_fdiv_q(*rem,*rem,giga);
+          if (f_bps)
+            if (sum)
+              strcpy(units,"Tb");
+            else
+              strcpy(units,"Tb/s");
+          else
+            if (sum)
+              strcpy(units,"TB");
+            else
+              strcpy(units,"TB/s");
+          *big_flag=1;
+        }
+        else if (mpz_cmp(*val,giga)>0)
+        {
+          mpz_fdiv_qr(*val,*rem,*val,giga);
+          mpz_fdiv_q(*rem,*rem,mega);
+          if (f_bps)
+            if (sum)
+              strcpy(units,"Gb");
+            else
+              strcpy(units,"Gb/s");
+          else
+            if (sum)
+              strcpy(units,"GB");
+            else
+              strcpy(units,"GB/s");
+          *big_flag=1;
+        }
+        else if (mpz_cmp(*val,mega)>0)
+        {
+          mpz_fdiv_qr(*val,*rem,*val,mega);
+          mpz_fdiv_q(*rem,*rem,kilo);
+          if (f_bps)
+            if (sum)
+              strcpy(units,"Mb");
+            else
+              strcpy(units,"Mb/s");
+          else
+            if (sum)
+              strcpy(units,"MB");
+            else
+              strcpy(units,"MB/s");
+          *big_flag=1;
+        }
+        else if (mpz_cmp(*val,kilo)>0)
+        {
+          mpz_fdiv_qr(*val,*rem,*val,kilo);
+          if (f_bps)
+            if (sum)
+              strcpy(units,"kb");
+            else
+              strcpy(units,"kb/s");
+          else
+            if (sum)
+              strcpy(units,"kB");
+            else
+              strcpy(units,"kB/s");
+          *big_flag=1;
+        }
+        else
+          if (f_bps)
+            if (sum)
+              strcpy(units,"bit");
+            else
+              strcpy(units,"bit/s");
+          else
+            if (sum)
+              strcpy(units,"B");
+            else
+              strcpy(units,"B/s");
 }
 
 void print_usage(){
@@ -507,8 +645,10 @@ void print_usage(){
    -m      print maximum data rate\n\
    -d      print date on each line\n\
    -t      print counter divided into days/hours/minutes\n\
-   -g val  print only Bps values greater than val\n\
-   -b      print rates as Bps, don't calculate it\n\
+   -g val  print only values greater than val\n\
+   -B      print rates as Bps\n\
+   -b      print rates as bps (default)\n\
+   -c      converting to larger units (k,M,G,T,P,E)\n\
    -h      print this message\n\
 \n", stdout);
   printf("%s is a Linux network interface rx/tx status.\n",PROG_NAME);
