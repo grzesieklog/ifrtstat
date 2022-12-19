@@ -246,6 +246,8 @@ int main(int argc, char* argv[]) {
   if (f_max){
     mpz_set_ui(maxrx,0);
     mpz_set_ui(maxtx,0);
+    mpz_set_ui(maxrxp,0);
+    mpz_set_ui(maxtxp,0);
   }
   if (f_greater){
     mpz_set_str(pmin,greater,10);
