@@ -23,12 +23,14 @@
 #define DAY_IN_SEC 60*60*24
 #define UINTMAX_AS_STR sizeof("18446744073709551615")
 
+volatile sig_atomic_t running = 1;
+
 time_t now;
 char date_t[32];
-char *interface;
+char *interface = 0;
 
-struct rtnl_link *nlink;
-struct nl_sock *nlsocket;
+struct rtnl_link *nlink = 0;
+struct nl_sock *nlsocket = 0;
 
 mpz_t kilo,mega,giga,tera,peta,exa;
 mpz_t sa,sb,a,b,aa,bb;
@@ -63,7 +65,7 @@ int main(int argc, char* argv[]) {
 
   int opt;
   const char options[] = "hmdtg:bBc";
-  char *greater;
+  char greater[MAX_GOPT_LEN + 1] = {0};
   struct stat fstat;
   uint8_t flag_sum=0;
   uint8_t int_sum=0;
@@ -120,7 +122,8 @@ int main(int argc, char* argv[]) {
           exit(7);
         }
         // TODO clear '=' from val
-        greater = optarg;
+        strncpy(greater, optarg, MAX_GOPT_LEN);
+        greater[MAX_GOPT_LEN] = '\0';
         f_greater=1;
         flag_sum++;
         break;
@@ -263,8 +266,9 @@ int main(int argc, char* argv[]) {
     get_time();
     printf("%s %s start at %s\n",PROG_NAME,interface,date_t);
   }
-  while(1) {
-    printrt=1;
+  while(running) {
+    nlink = 0;
+    printrt = 1;
     if(rtnl_link_get_kernel(nlsocket,0,interface,&nlink)==0){
       rx_bytes=rtnl_link_get_stat(nlink,RTNL_LINK_RX_BYTES);
       tx_bytes=rtnl_link_get_stat(nlink,RTNL_LINK_TX_BYTES);
@@ -445,16 +449,13 @@ int main(int argc, char* argv[]) {
   }
   nl_socket_free(nlsocket);
   free_num();
-  printf("exit\n");
+  printf("Exit\n");
   exit(0);
 }
 
 void sig_stop(int sig)
 {
-  nl_socket_free(nlsocket);
-  free_num();
-  printf("Exit\n");
-  exit(0);
+  running = 0;
 }
 void get_time(){
   memset(date_t,0,sizeof(date_t));
